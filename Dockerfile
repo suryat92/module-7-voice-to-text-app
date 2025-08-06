@@ -10,11 +10,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY app/requirements.txt .
+COPY voice-to-text-app/app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY app/ .
+COPY voice-to-text-app/app/ .
 
 # Create uploads directory
 RUN mkdir -p uploads
