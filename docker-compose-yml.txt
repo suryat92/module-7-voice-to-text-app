@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  voice-to-text:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_PATH=/app/data/transcriptions.db
+      - UPLOAD_FOLDER=/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  data:
+  uploads:

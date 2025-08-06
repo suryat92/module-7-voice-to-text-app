@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎤 Voice to Text Converter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎤 Voice to Text Converter</h1>
+            <p>Upload an audio file to convert speech to text using AI</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <div class="upload-section">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="audioFile" name="audio_file" accept=".wav,.mp3,.flac,.aiff,.aac" required>
+                        <label for="audioFile" class="file-input-label">
+                            📁 Choose Audio File
+                        </label>
+                    </div>
+                    <button type="submit" id="uploadBtn" class="btn btn-primary">
+                        🔄 Convert to Text
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results" class="results-section" style="display: none;">
+                <h3>Transcription Result</h3>
+                <div id="transcriptionResult" class="result-box"></div>
+                <div id="processingInfo" class="info-box"></div>
+            </div>
+
+            <!-- Error Section -->
+            <div id="error" class="error-section" style="display: none;">
+                <h3>Error</h3>
+                <div id="errorMessage" class="error-box"></div>
+            </div>
+
+            <!-- History Section -->
+            <div class="history-section">
+                <h3>Recent Transcriptions</h3>
+                <button id="loadHistoryBtn" class="btn btn-secondary">Load History</button>
+                <div id="historyList" class="history-list"></div>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="stats-section">
+                <h3>Statistics</h3>
+                <button id="loadStatsBtn" class="btn btn-secondary">Load Stats</button>
+                <div id="statsDisplay" class="stats-display"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const uploadForm = document.getElementById('uploadForm');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const resultsSection = document.getElementById('results');
+        const errorSection = document.getElementById('error');
+        const transcriptionResult = document.getElementById('transcriptionResult');
+        const processingInfo = document.getElementById('processingInfo');
+        const errorMessage = document.getElementById('errorMessage');
+        const loadHistoryBtn = document.getElementById('loadHistoryBtn');
+        const historyList = document.getElementById('historyList');
+        const loadStatsBtn = document.getElementById('loadStatsBtn');
+        const statsDisplay = document.getElementById('statsDisplay');
+
+        // Handle form submission
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('audioFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showError('Please select an audio file');
+                return;
+            }
+
+            // Show loading state
+            uploadBtn.innerHTML = '⏳ Processing...';
+            uploadBtn.disabled = true;
+            hideResults();
+
+            const formData = new FormData();
+            formData.append('audio_file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showResults(result);
+                } else {
+                    showError(result.error || 'Transcription failed');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                uploadBtn.innerHTML = '🔄 Convert to Text';
+                uploadBtn.disabled = false;
+            }
+        });
+
+        // Load history
+        loadHistoryBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/history');
+                const data = await response.json();
+                
+                if (data.history) {
+                    displayHistory(data.history);
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        });
+
+        // Load stats
+        loadStatsBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/stats');
+                const stats = await response.json();
+                displayStats(stats);
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        });
+
+        function showResults(result) {
+            transcriptionResult.innerHTML = `
+                <h4>Transcribed Text:</h4>
+                <p class="transcription-text">"${result.text}"</p>
+            `;
+            
+            processingInfo.innerHTML = `
+                <div class="info-item">
+                    <strong>File:</strong> ${result.filename}
+                </div>
+                <div class="info-item">
+                    <strong>Processing Time:</strong> ${result.processing_time.toFixed(2)} seconds
+                </div>
+                <div class="info-item">
+                    <strong>Confidence:</strong> ${(result.confidence * 100).toFixed(1)}%
+                </div>
+            `;
+            
+            resultsSection.style.display = 'block';
+            errorSection.style.display = 'none';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorSection.style.display = 'block';
+            resultsSection.style.display = 'none';
+        }
+
+        function hideResults() {
+            resultsSection.style.display = 'none';
+            errorSection.style.display = 'none';
+        }
+
+        function displayHistory(history) {
+            if (history.length === 0) {
+                historyList.innerHTML = '<p>No transcriptions found.</p>';
+                return;
+            }
+
+            const historyHTML = history.map(item => `
+                <div class="history-item">
+                    <div class="history-header">
+                        <strong>${item.filename}</strong>
+                        <span class="timestamp">${new Date(item.created_at).toLocaleString()}</span>
+                    </div>
+                    <div class="history-content">
+                        <p class="transcription-text">"${item.original_text}"</p>
+                        <div class="history-meta">
+                            Processing: ${item.processing_time.toFixed(2)}s
+                            ${item.confidence ? ` | Confidence: ${(item.confidence * 100).toFixed(1)}%` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            historyList.innerHTML = historyHTML;
+        }
+
+        function displayStats(stats) {
+            statsDisplay.innerHTML = `
+                <div class="stat-item">
+                    <strong>Total Transcriptions:</strong> ${stats.total_transcriptions}
+                </div>
+                <div class="stat-item">
+                    <strong>Successful Transcriptions:</strong> ${stats.successful_transcriptions}
+                </div>
+                <div class="stat-item">
+                    <strong>Average Processing Time:</strong> ${stats.avg_processing_time ? stats.avg_processing_time.toFixed(2) + 's' : 'N/A'}
+                </div>
+                <div class="stat-item">
+                    <strong>Success Rate:</strong> ${stats.total_transcriptions ? ((stats.successful_transcriptions / stats.total_transcriptions) * 100).toFixed(1) + '%' : 'N/A'}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
